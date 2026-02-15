@@ -1,20 +1,22 @@
 import Foundation
+import os
 
 public final class GetProductDetailUseCaseImpl: GetProductDetailUseCase {
     private let repository: CommerceRepository
+    private let logger = Logger(subsystem: "com.yourapp.GetProductDetailUseCase", category: "GetProductDetailUseCaseImpl")
 
     public init(repository: CommerceRepository) {
         self.repository = repository
     }
 
     public func execute(itemId: String) async throws -> ProductDetail {
-        print("[GetProductDetailUseCaseImpl] execute(itemId:\"\(itemId)\")")
+        logger.debug("execute(itemId:\"\(itemId)\")")
         do {
             let detail = try await repository.getProductDetail(itemId: itemId)
-            print("[GetProductDetailUseCaseImpl] success title=\(detail.title)")
+            logger.debug("success title=\(detail.title)")
             return detail
         } catch {
-            print("[GetProductDetailUseCaseImpl] error: \(error)")
+            logger.error("error: \(error.localizedDescription)")
             throw error
         }
     }

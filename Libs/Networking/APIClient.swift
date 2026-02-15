@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import os
 
 public final class APIClient {
 
@@ -8,6 +9,7 @@ public final class APIClient {
     private init() {}
 
     private let baseURL = "https://api.mercadolibre.com"
+    private let logger = Logger(subsystem: "com.yourapp.APIClient", category: "APIClient")
 
     public func request<T: Decodable>(
         path: String,
@@ -16,12 +18,14 @@ public final class APIClient {
     ) async throws -> T {
 
         guard var components = URLComponents(string: baseURL + path) else {
+            logger.error("Invalid URL for path: \(path)")
             throw APIError.invalidURL
         }
 
         components.queryItems = queryItems
 
         guard let url = components.url else {
+            logger.error("Invalid URL components: \(components)")
             throw APIError.invalidURL
         }
 
@@ -32,31 +36,32 @@ public final class APIClient {
         request.setValue("gzip, deflate", forHTTPHeaderField: "Accept-Encoding")
         request.timeoutInterval = 30
 
-        print("[APIClient] Request: \(request.url?.absoluteString ?? "")")
+        logger.debug("Request: \(request.url?.absoluteString ?? "nil")")
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let http = response as? HTTPURLResponse else {
+            logger.error("Invalid response type")
             throw APIError.invalidResponse
         }
 
-        print("[APIClient] Response Status: \(http.statusCode)")
+        logger.debug("Response Status: \(http.statusCode)")
 
         // Handle 403 Forbidden by returning mock data
         if http.statusCode == 403 {
-            print("[APIClient] Received 403, falling back to MockAPIClient")
+            logger.warning("Received 403, falling back to MockAPIClient")
             return try await MockAPIClient.shared.request(path: path, queryItems: queryItems, method: method)
         }
 
         guard 200..<300 ~= http.statusCode else {
-            print("[APIClient] HTTP Error: \(http.statusCode)")
+            logger.error("HTTP Error: \(http.statusCode)")
             throw APIError.invalidResponse
         }
 
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
-            print("[APIClient] Decoding error: \(error)")
+            logger.error("Decoding error: \(error.localizedDescription)")
             throw APIError.decoding(error)
         }
     }
